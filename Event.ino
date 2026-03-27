@@ -1,5 +1,4 @@
-unsigned long lastTrigger_212 = 0;
-unsigned long lastTrigger_323 = 0;
+
 
 // ===================================================================
 //  LOGIKA TRANSMISI ABUSE
@@ -152,7 +151,9 @@ void updateTransmissionLogic() {
     // ---------- 2-1-2 ----------
     if (isPattern_2_1_2(dur212)) {
       if (dur212 < 5000 && (now - lastTrigger_212 > 1000)) {
-
+        requestAudio(AUDIO_HUNTING_V1, true);
+        playAudio(AUDIO_HUNTING_V1);
+        requestAudio(AUDIO_HUNTING_V1, false);
         lastTrigger_212 = now;
 
         EventItem item;
@@ -162,13 +163,16 @@ void updateTransmissionLogic() {
 
         fillEventTime(&item);
         xQueueSend(eventQueue, &item, 0);
+        
       }
     }
 
     // ---------- 3-2-3 ----------
     if (isPattern_3_2_3(dur323)) {
       if (dur323 < 5000 && (now - lastTrigger_323 > 1000)) {
-
+        requestAudio(AUDIO_HUNTING_V2, true);
+        playAudio(AUDIO_HUNTING_V2);
+        requestAudio(AUDIO_HUNTING_V2, false);
         lastTrigger_323 = now;
 
         EventItem item;
@@ -211,11 +215,6 @@ void updateTransmissionLogic() {
       }
 
       if (abuseStableTimerActive && (now - abuseStableStartMs >= ABUSE_STABLE_MS)) {
-        // Di sini kita anggap event abuse sudah selesai dan gear tujuan stabil
-        // ---> KIRIM V4 "2" DI SINI <---
-        // Contoh panggil fungsi log / sensor di project asli:
-        // RecordSensor(xNoUnit, IDcardCurrent, "V4", "2", String(Speed), String(Total), xTgl, xJam, xSite);
-        // SuaraAbuse = 0;  // kalau kamu matikan suara di sini
         EventItem item;
 
         strcpy(item.event, "V4");
@@ -400,15 +399,15 @@ void CheckSlipStall() {
 
   // ================= TIMER =================
   if (SlipStallCondition) {
-    if (neutralStartTime == 0)
-      neutralStartTime = millis();
+    if (SlipStallStartTime == 0)
+      SlipStallStartTime = millis();
   } else {
-    neutralStartTime = 0;
+    SlipStallStartTime = 0;
   }
 
-  unsigned long duration = (neutralStartTime == 0) ? 0 : (millis() - neutralStartTime);
+  unsigned long duration = (SlipStallStartTime == 0) ? 0 : (millis() - SlipStallStartTime);
 
-  bool SlipStallTriggered = (duration >= 3000);
+  bool SlipStallTriggered = (duration >= 2000);
 
   // ================= AUDIO =================
   requestAudio(AUDIO_SLIP_STALL, SlipStallTriggered);

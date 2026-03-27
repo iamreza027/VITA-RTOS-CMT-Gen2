@@ -58,6 +58,7 @@ word speed = 0;
 
 //Variable Global Event
 uint32_t neutralStartTime = 0;
+uint32_t SlipStallStartTime = 0;
 bool costingNeutralActive = false;
 bool SlipStallActive = false;
 bool overspeedActive = false;
@@ -71,6 +72,9 @@ int SlipStallMaju = 0;
 int SlipStallMajuOFF = 0;
 int SlipStallMundur = 0;
 int SlipStallMundurOFF = 0;
+
+unsigned long lastTrigger_212 = 0;
+unsigned long lastTrigger_323 = 0;
 /* ============================================================
    NETWORK SERVER
   ============================================================ */
@@ -112,7 +116,7 @@ typedef struct {
   char username[16];
   char password[16];
 
-  char rpmGenerator[4][8];
+  char RPMEngine[4][8];
   char overspeedLimit[4][8];
 
   char coastingSpeed[8];
@@ -481,7 +485,7 @@ void saveConfig() {
   configStorage.putString("user", deviceConfig.username);
   configStorage.putString("pwd", deviceConfig.password);
 
-  joinHash(deviceConfig.rpmGenerator, buffer);
+  joinHash(deviceConfig.RPMEngine, buffer);
   configStorage.putString("rpm", buffer);
 
   joinHash(deviceConfig.overspeedLimit, buffer);
@@ -873,7 +877,7 @@ void parseSaveFrame(char *frame) {
       case 8: strncpy(deviceConfig.username, token, sizeof(deviceConfig.username)); break;
       case 9: strncpy(deviceConfig.password, token, sizeof(deviceConfig.password)); break;
 
-      case 10: splitHash(token, deviceConfig.rpmGenerator); break;
+      case 10: splitHash(token, deviceConfig.RPMEngine); break;
       case 11: splitHash(token, deviceConfig.overspeedLimit); break;
 
       case 12: strncpy(deviceConfig.coastingSpeed, token, sizeof(deviceConfig.coastingSpeed)); break;
