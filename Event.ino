@@ -1,3 +1,6 @@
+unsigned long lastTrigger_212 = 0;
+unsigned long lastTrigger_323 = 0;
+
 // ===================================================================
 //  LOGIKA TRANSMISI ABUSE
 // ===================================================================
@@ -140,6 +143,43 @@ void updateTransmissionLogic() {
         // abuseActive = true;
       }
     }
+
+    // ================= GEAR BOUNCE DETECTION =================
+
+    unsigned long dur212 = 0;
+    unsigned long dur323 = 0;
+
+    // ---------- 2-1-2 ----------
+    if (isPattern_2_1_2(dur212)) {
+      if (dur212 < 5000 && (now - lastTrigger_212 > 1000)) {
+
+        lastTrigger_212 = now;
+
+        EventItem item;
+        strcpy(item.event, "V1");  // khusus 2-1-2
+        strcpy(item.kodeST, "1");
+        item.valueSensor = (int)speed;
+
+        fillEventTime(&item);
+        xQueueSend(eventQueue, &item, 0);
+      }
+    }
+
+    // ---------- 3-2-3 ----------
+    if (isPattern_3_2_3(dur323)) {
+      if (dur323 < 5000 && (now - lastTrigger_323 > 1000)) {
+
+        lastTrigger_323 = now;
+
+        EventItem item;
+        strcpy(item.event, "V2");  // khusus 3-2-3
+        strcpy(item.kodeST, "1");
+        item.valueSensor = (int)speed;
+
+        fillEventTime(&item);
+        xQueueSend(eventQueue, &item, 0);
+      }
+    }
   }
 
   // Jika saat ini di netral dan menghitung, cek apakah sudah >= 5 detik
@@ -197,6 +237,38 @@ void updateTransmissionLogic() {
     }
   }
 }
+bool isPattern_2_1_2(unsigned long &durationOut) {
+  GearState last, mid, first;
+
+  if (!getHistoryFromEnd(0, last)) return false;
+  if (!getHistoryFromEnd(1, mid)) return false;
+  if (!getHistoryFromEnd(2, first)) return false;
+
+  if (first.gearNorm == 2 && mid.gearNorm == 1 && last.gearNorm == 2) {
+
+    durationOut = last.timestamp - mid.timestamp;
+    return true;
+  }
+
+  return false;
+}
+
+bool isPattern_3_2_3(unsigned long &durationOut) {
+  GearState last, mid, first;
+
+  if (!getHistoryFromEnd(0, last)) return false;
+  if (!getHistoryFromEnd(1, mid)) return false;
+  if (!getHistoryFromEnd(2, first)) return false;
+
+  if (first.gearNorm == 3 && mid.gearNorm == 2 && last.gearNorm == 3) {
+
+    durationOut = last.timestamp - mid.timestamp;
+    return true;
+  }
+
+  return false;
+}
+
 
 void CheckOverspeed() {
 
@@ -324,10 +396,10 @@ void CheckSlipStall() {
   int rpm = CAN_getRPM();
   int gear = CAN_getCurrentGear();
 
-  bool SlipStallCondition = (gear == 1 && rpm > );
+  bool SlipStallCondition = (gear == 1 && rpm > SlipStallMaju);
 
   // ================= TIMER =================
-  if (coastingCondition) {
+  if (SlipStallCondition) {
     if (neutralStartTime == 0)
       neutralStartTime = millis();
   } else {
@@ -336,48 +408,48 @@ void CheckSlipStall() {
 
   unsigned long duration = (neutralStartTime == 0) ? 0 : (millis() - neutralStartTime);
 
-  bool coastingTriggered = (duration >= 3000);
+  bool SlipStallTriggered = (duration >= 3000);
 
   // ================= AUDIO =================
-  requestAudio(AUDIO_COASTING_GEAR, coastingTriggered);
+  requestAudio(AUDIO_SLIP_STALL, SlipStallTriggered);
 
   // ================= ON EVENT =================
-  if (coastingTriggered) {
-    if (!costingNeutralActive) {
+  if (SlipStallTriggered) {
+    if (!SlipStallActive) {
 
-      costingNeutralActive = true;
+      SlipStallActive = true;
 
-      playAudio(AUDIO_COASTING_GEAR);
+      playAudio(AUDIO_SLIP_STALL);
 
       EventItem item;
 
-      strcpy(item.event, "V10");
+      strcpy(item.event, "V5");
       strcpy(item.kodeST, "1");
-      item.valueSensor = (int)speed;
+      item.valueSensor = rpm;
 
       fillEventTime(&item);
       xQueueSend(eventQueue, &item, 0);
 
-      Serial.println("COASTING NETRAL ON");
+      Serial.println("SLIP/STALL ON");
     }
   }
 
   // ================= OFF EVENT =================
   else {
-    if (costingNeutralActive) {
+    if (SlipStallActive) {
 
-      costingNeutralActive = false;
+      SlipStallActive = false;
 
       EventItem item;
 
-      strcpy(item.event, "V10");
+      strcpy(item.event, "V5");
       strcpy(item.kodeST, "2");
-      item.valueSensor = (int)speed;
+      item.valueSensor = rpm;
 
       fillEventTime(&item);
       xQueueSend(eventQueue, &item, 0);
 
-      Serial.println("COASTING NETRAL OFF");
+      Serial.println("SLIP/STALL OFF");
     }
   }
 }

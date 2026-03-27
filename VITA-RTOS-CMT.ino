@@ -59,12 +59,18 @@ word speed = 0;
 //Variable Global Event
 uint32_t neutralStartTime = 0;
 bool costingNeutralActive = false;
+bool SlipStallActive = false;
 bool overspeedActive = false;
 
 int OverspeedMuatanON = 0;
 int OverspeedMuatanOFF = 0;
 int OverspeedKosonganON = 0;
 int OverspeedKosonganOFF = 0;
+
+int SlipStallMaju = 0;
+int SlipStallMajuOFF = 0;
+int SlipStallMundur = 0;
+int SlipStallMundurOFF = 0;
 /* ============================================================
    NETWORK SERVER
   ============================================================ */
@@ -423,7 +429,7 @@ String buildExportFrame() {
   frame += deviceConfig.password;
   frame += "~";
 
-  joinHash(deviceConfig.rpmGenerator, buffer);
+  joinHash(deviceConfig.RPMEngine, buffer);
   frame += buffer;
   frame += "~";
 
@@ -539,7 +545,7 @@ void loadConfig() {
 
   s = configStorage.getString("rpm", "");
   strncpy(buffer, s.c_str(), sizeof(buffer));
-  splitHash(buffer, deviceConfig.rpmGenerator);
+  splitHash(buffer, deviceConfig.RPMEngine);
 
   s = configStorage.getString("overspeed", "");
   strncpy(buffer, s.c_str(), sizeof(buffer));
@@ -582,6 +588,19 @@ void parseOverspeedLimit() {
   Serial.printf("Muatan OFF : %d\n", OverspeedMuatanOFF);
   Serial.printf("Kosong ON  : %d\n", OverspeedKosonganON);
   Serial.printf("Kosong OFF : %d\n", OverspeedKosonganOFF);
+}
+
+void parseSlipStall() {
+  SlipStallMaju = atoi(deviceConfig.RPMEngine[0]);
+  SlipStallMajuOFF = atoi(deviceConfig.RPMEngine[1]);
+  SlipStallMundur = atoi(deviceConfig.RPMEngine[2]);
+  SlipStallMundurOFF = atoi(deviceConfig.RPMEngine[3]);
+
+  Serial.println("RPM Engine CONFIG:");
+  Serial.printf("SlipStallMaju  : %d\n", SlipStallMaju);
+  Serial.printf("SlipStallMaju OFF : %d\n", SlipStallMajuOFF);
+  Serial.printf("SlipStallMundur  : %d\n", SlipStallMundur);
+  Serial.printf("SlipStallMundur OFF : %d\n", SlipStallMundurOFF);
 }
 /* ============================================================
                         SD UTIL
