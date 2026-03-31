@@ -30,6 +30,7 @@ struct GearState {
 GearState gearHistory[HISTORY_SIZE];
 int historyCount = 0;
 
+
 // =================== STATE LOGIKA ==========================
 
 // Netral & shiftlever

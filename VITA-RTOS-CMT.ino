@@ -158,14 +158,13 @@ VAD HistoryVAD;
   Struct data CAN
   ============================================================ */
 typedef struct {
-  int speed;
   int TransRqedRange;
   int TransCurrentGear;
-  int RPMEngine;
 
-  float SignalSpeed;
-  float Speed;
-  float Rpm;
+
+  uint16_t SignalSpeed;
+  uint16_t Speed;
+  uint16_t Rpm;
 
   int ShiftLeverPos;  //Replace GearPos
 
@@ -1038,22 +1037,24 @@ void sendDebug() {
 
   fillEventTime(&item);
 
-  char msg[128];
+  static char msg[256];
+  const char *idNow = deviceConfig.IDCardNow ? deviceConfig.IDCardNow : "NULL";
+  const char *idLast = deviceConfig.IDCardBefor ? deviceConfig.IDCardBefor : "NULL";
 
   snprintf(msg, sizeof(msg),
-           "IDCardNow= %s 888,IDCardLast= %s ,Speed =%d ,ShiftLever= %d ,Gear Current= %d ,RPM= %d ,Date= %s ,Time= %s",
-           deviceConfig.IDCardNow,
-           deviceConfig.IDCardBefor,
+           "IDCardNow= %s ,IDCardLast= %s ,Speed =%.2f ,ShiftLever= %d ,Gear Current= %d ,RPM= %.2f ,Date= %s ,Time= %s",
+           idNow,
+           idLast,
            CAN_getSpeed(),
-           canData.ShiftLeverPos,
+           CAN_getShiftLeverPos(),
            CAN_getCurrentGear(),
            CAN_getRPM(),
            item.dateStr,
            item.timeStr);
 
   sendSocket(msg);
-
   Serial.println(msg);
+
   Serial.print("Speed Source: ");
 
   if (canData.simSpeedEnable)
@@ -1421,21 +1422,19 @@ void canTask(void *pv) {
           // ================= RPM =================
           case 0x0CF00400:
             canData.Rpm = word(rxBuf[4], rxBuf[3]) * 0.125;
-            canData.validRPM = true;
+            
             break;
 
           // ================= TRANSMISSION =================
           case 0x18F00503:
             canData.TransRqedRange = word(rxBuf[5], rxBuf[4]);
             canData.TransCurrentGear = rxBuf[3] - 125;
-            canData.validGear = true;
             break;
 
           // ================= SPEED =================
           case 0x0CFE6CEE:
             canData.SignalSpeed = word(rxBuf[7], rxBuf[6]) * 0.125;
             canData.Speed = canData.SignalSpeed / 31.5;
-            canData.validSpeed = true;
             break;
 
           default:
@@ -1446,22 +1445,36 @@ void canTask(void *pv) {
         canData.lastUpdate = millis();
       }
     }
-    // ===== GEAR POSITION MAPPING =====
-    if (canData.TransRqedRange == 8274) {
-      canData.ShiftLeverPos = -1;
-    } else if (canData.TransRqedRange == 8270) {
-      canData.ShiftLeverPos = 0;
-    } else if (canData.TransRqedRange == 8245) {
-      canData.ShiftLeverPos = 5;
-    } else if (canData.TransRqedRange == 8244) {
-      canData.ShiftLeverPos = 4;
-    } else if (canData.TransRqedRange == 8243) {
-      canData.ShiftLeverPos = 3;
-    } else if (canData.TransRqedRange == 8242) {
-      canData.ShiftLeverPos = 2;
-    } else if (canData.TransRqedRange == 8241) {
-      canData.ShiftLeverPos = 1;
+    int raw = canData.TransRqedRange;
+
+    canData.ShiftLeverPos = 99;  // default unknown
+
+    switch (raw) {
+      case 8274: canData.ShiftLeverPos = -1; break;
+      case 8270: canData.ShiftLeverPos = 0; break;
+      case 8245: canData.ShiftLeverPos = 5; break;
+      case 8244: canData.ShiftLeverPos = 4; break;
+      case 8243: canData.ShiftLeverPos = 3; break;
+      case 8242: canData.ShiftLeverPos = 2; break;
+      case 8241: canData.ShiftLeverPos = 1; break;
     }
+
+    // ===== GEAR POSITION MAPPING =====
+    // if (canData.TransRqedRange == 8274) {
+    //   canData.ShiftLeverPos = -1;
+    // } else if (canData.TransRqedRange == 8270) {
+    //   canData.ShiftLeverPos = 0;
+    // } else if (canData.TransRqedRange == 8245) {
+    //   canData.ShiftLeverPos = 5;
+    // } else if (canData.TransRqedRange == 8244) {
+    //   canData.ShiftLeverPos = 4;
+    // } else if (canData.TransRqedRange == 8243) {
+    //   canData.ShiftLeverPos = 3;
+    // } else if (canData.TransRqedRange == 8242) {
+    //   canData.ShiftLeverPos = 2;
+    // } else if (canData.TransRqedRange == 8241) {
+    //   canData.ShiftLeverPos = 1;
+    // }
 
     vTaskDelay(1);
   }
@@ -1563,7 +1576,7 @@ void serialTask(void *pv) {
    HARDWARE SERIAL TASK
   ============================================================ */
 void taskExternalSerial(void *pv) {
-  static char buffer[64];
+  static char buffer[128];
   int index = 0;
   bool receiving = false;
 
@@ -1586,9 +1599,15 @@ void taskExternalSerial(void *pv) {
       if (c == '#') {
         buffer[index] = '\0';
 
-        strcpy(frame.frame, buffer);
-
-        xQueueSend(externalSerialQueue, &frame, 0);
+        // strcpy(frame.frame, buffer);
+        // xQueueSend(externalSerialQueue, &frame, 0);
+        // cukup guard sederhana
+        if (index < sizeof(frame.frame)) {
+          strcpy(frame.frame, buffer);
+          xQueueSend(externalSerialQueue, &frame, 0);
+        } else {
+          Serial.println("Frame too long, dropped");
+        }
 
         receiving = false;
         index = 0;
@@ -1700,7 +1719,7 @@ void setup() {
   loadHistoryVAD();                                                                          //Load VAD
 
   pinMode(INTERLOCK, OUTPUT);
-  //digitalWrite(INTERLOCK, HIGH);
+  digitalWrite(INTERLOCK, HIGH);
 
   spiMutex = xSemaphoreCreateMutex();
 
@@ -1724,7 +1743,7 @@ void setup() {
 
   xTaskCreatePinnedToCore(eventTask, "eventTask", 4096, NULL, 2, NULL, 1);
   xTaskCreatePinnedToCore(sendTask, "sendTask", 4096, NULL, 1, NULL, 1);
-  xTaskCreatePinnedToCore(wifiTask, "wifiTask", 4096, NULL, 1, &wifiTaskHandle, 0);
+  xTaskCreatePinnedToCore(wifiTask, "wifiTask", 8192, NULL, 1, &wifiTaskHandle, 0);
   xTaskCreatePinnedToCore(socketTask, "socketTask", 8192, NULL, 1, &socketTaskHandle, 1);
   xTaskCreatePinnedToCore(serialTask, "serialTask", 4096, NULL, 1, &serialTaskHandle, 1);
   xTaskCreatePinnedToCore(sdTask, "sdTask", 4096, NULL, 1, &sdTaskHandle, 1);

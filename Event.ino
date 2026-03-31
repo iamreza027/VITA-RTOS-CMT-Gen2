@@ -4,20 +4,23 @@
 //  LOGIKA TRANSMISI ABUSE
 // ===================================================================
 // Tambah entry baru ke history (array geser kiri, data baru di belakang)
+int historyIndex = 0;
+portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
 void addGearToHistory(int gearNorm, unsigned long t) {
+  if (gearNorm < -1 || gearNorm > 1) return;
+
+  portENTER_CRITICAL(&mux);
+
+  gearHistory[historyIndex].gearNorm = gearNorm;
+  gearHistory[historyIndex].timestamp = t;
+
+  historyIndex = (historyIndex + 1) % HISTORY_SIZE;
+
   if (historyCount < HISTORY_SIZE) {
-    gearHistory[historyCount].gearNorm = gearNorm;
-    gearHistory[historyCount].timestamp = t;
     historyCount++;
-  } else {
-    // geser ke kiri
-    for (int i = 1; i < HISTORY_SIZE; i++) {
-      gearHistory[i - 1] = gearHistory[i];
-    }
-    // masukkan di slot terakhir
-    gearHistory[HISTORY_SIZE - 1].gearNorm = gearNorm;
-    gearHistory[HISTORY_SIZE - 1].timestamp = t;
   }
+
+  portEXIT_CRITICAL(&mux);
 }
 // ----------------- DETEKSI DARI HISTORY ---------------------
 // Fungsi bantu: ambil index dari belakang

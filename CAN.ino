@@ -9,17 +9,23 @@ void startCan() {
 }
 
 /*Pemanggilan parameter dengan getter supaya menghindari race condition karena task logic dan can reader berjalan paralel*/
-float CAN_getSpeed() {
+uint16_t  CAN_getSpeed() {
   if (canData.simSpeedEnable)
     return canData.simSpeed;
 
   return canData.Speed;
 }
 
+
+uint16_t  CAN_getRPM() {
+  return canData.Rpm;
+}
+
 int CAN_getCurrentGear(){
   return canData.TransCurrentGear;
 }
 
-float CAN_getRPM() {
-  return canData.Rpm;
+int CAN_getShiftLeverPos(){
+  return canData.TransRqedRange;
 }
+
